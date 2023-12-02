@@ -643,6 +643,8 @@
 			[b]Note:[/b] On Windows, the portion of a window that lies outside the region is not drawn, while on Linux (X11) and macOS it is.
 			[b]Note:[/b] This property is implemented on Linux (X11), macOS and Windows.
 		</member>
+		<member name="mouse_passthrough_rectangles" type="Rect2i[]" setter="set_mouse_passthrough_rectangles" getter="get_mouse_passthrough_rectangles" default="[]">
+		</member>
 		<member name="popup_window" type="bool" setter="set_flag" getter="get_flag" default="false">
 			If [code]true[/code], the [Window] will be considered a popup. Popups are sub-windows that don't show as separate windows in system's window manager's window list and will send close request when anything is clicked outside of them (unless [member exclusive] is enabled).
 		</member>

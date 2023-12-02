@@ -1451,6 +1451,19 @@ Vector<Vector2> Window::get_mouse_passthrough_polygon() const {
 	return mpath;
 }
 
+void Window::set_mouse_passthrough_rectangles(const TypedArray<Rect2i> &p_rectangles) {
+	ERR_MAIN_THREAD_GUARD;
+	passthrough_rectangles = p_rectangles;
+	if (window_id == DisplayServer::INVALID_WINDOW_ID) {
+		return;
+	}
+	DisplayServer::get_singleton()->window_set_mouse_passthrough_rectangles(passthrough_rectangles, window_id);
+}
+
+TypedArray<Rect2i> Window::get_mouse_passthrough_rectangles() const {
+	return passthrough_rectangles;
+}
+
 void Window::set_wrap_controls(bool p_enable) {
 	ERR_MAIN_THREAD_GUARD;
 	wrap_controls = p_enable;
@@ -2745,6 +2758,9 @@ void Window::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_mouse_passthrough_polygon", "polygon"), &Window::set_mouse_passthrough_polygon);
 	ClassDB::bind_method(D_METHOD("get_mouse_passthrough_polygon"), &Window::get_mouse_passthrough_polygon);
 
+	ClassDB::bind_method(D_METHOD("set_mouse_passthrough_rectangles", "rectangles"), &Window::set_mouse_passthrough_rectangles);
+	ClassDB::bind_method(D_METHOD("get_mouse_passthrough_rectangles"), &Window::get_mouse_passthrough_rectangles);
+
 	ClassDB::bind_method(D_METHOD("set_wrap_controls", "enable"), &Window::set_wrap_controls);
 	ClassDB::bind_method(D_METHOD("is_wrapping_controls"), &Window::is_wrapping_controls);
 	ClassDB::bind_method(D_METHOD("child_controls_changed"), &Window::child_controls_changed);
@@ -2831,6 +2847,7 @@ void Window::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "current_screen", PROPERTY_HINT_RANGE, "0,64,1,or_greater"), "set_current_screen", "get_current_screen");
 
 	ADD_PROPERTY(PropertyInfo(Variant::PACKED_VECTOR2_ARRAY, "mouse_passthrough_polygon"), "set_mouse_passthrough_polygon", "get_mouse_passthrough_polygon");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "mouse_passthrough_rectangles", PROPERTY_HINT_ARRAY_TYPE, "Rect2i"), "set_mouse_passthrough_rectangles", "get_mouse_passthrough_rectangles");
 
 	ADD_GROUP("Flags", "");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "visible"), "set_visible", "is_visible");

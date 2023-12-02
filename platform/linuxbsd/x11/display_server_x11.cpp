@@ -1834,11 +1834,20 @@ void DisplayServerX11::window_set_mouse_passthrough(const Vector<Vector2> &p_reg
 	_update_window_mouse_passthrough(p_window);
 }
 
+void DisplayServerX11::window_set_mouse_passthrough_rectangles(const TypedArray<Rect2i> &p_rectangles, WindowID p_window) {
+	_THREAD_SAFE_METHOD_
+
+	ERR_FAIL_COND(!windows.has(p_window));
+	windows[p_window].passthrough_rectangles = p_rectangles;
+	_update_window_mouse_passthrough(p_window);
+}
+
 void DisplayServerX11::_update_window_mouse_passthrough(WindowID p_window) {
 	ERR_FAIL_COND(!windows.has(p_window));
 	ERR_FAIL_COND(!xshaped_ext_ok);
 
 	const Vector<Vector2> region_path = windows[p_window].mpath;
+	const TypedArray<Rect2i> region_rectangles = windows[p_window].passthrough_rectangles;
 
 	int event_base, error_base;
 	const Bool ext_okay = XShapeQueryExtension(x11_display, &event_base, &error_base);
@@ -1847,16 +1856,33 @@ void DisplayServerX11::_update_window_mouse_passthrough(WindowID p_window) {
 			Region region = XCreateRegion();
 			XShapeCombineRegion(x11_display, windows[p_window].x11_window, ShapeInput, 0, 0, region, ShapeSet);
 			XDestroyRegion(region);
-		} else if (region_path.size() == 0) {
+		} else if (region_path.size() == 0 && region_rectangles.size() == 0) {
 			XShapeCombineMask(x11_display, windows[p_window].x11_window, ShapeInput, 0, 0, None, ShapeSet);
 		} else {
-			XPoint *points = (XPoint *)memalloc(sizeof(XPoint) * region_path.size());
-			for (int i = 0; i < region_path.size(); i++) {
-				points[i].x = region_path[i].x;
-				points[i].y = region_path[i].y;
+			Region region;
+			if (region_path.size()) {
+				XPoint *points = (XPoint *)memalloc(sizeof(XPoint) * region_path.size());
+				for (int i = 0; i < region_path.size(); i++) {
+					points[i].x = region_path[i].x;
+					points[i].y = region_path[i].y;
+				}
+				region = XPolygonRegion(points, region_path.size(), EvenOddRule);
+				memfree(points);
+			} else {
+				region = XCreateRegion();
 			}
-			Region region = XPolygonRegion(points, region_path.size(), EvenOddRule);
-			memfree(points);
+
+			XRectangle xrect;
+			for (int i = 0; i < region_rectangles.size(); i++) {
+				const Rect2i &rect = region_rectangles[i];
+				xrect.x = rect.position.x;
+				xrect.y = rect.position.y;
+				xrect.width = rect.size.x;
+				xrect.height = rect.size.y;
+
+				XUnionRectWithRegion(&xrect, region, region); // returns RECTANGLE_IN, ...
+			}
+
 			XShapeCombineRegion(x11_display, windows[p_window].x11_window, ShapeInput, 0, 0, region, ShapeSet);
 			XDestroyRegion(region);
 		}

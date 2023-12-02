@@ -182,6 +182,7 @@ class DisplayServerX11 : public DisplayServer {
 		Callable drop_files_callback;
 
 		Vector<Vector2> mpath;
+		TypedArray<Rect2i> passthrough_rectangles;
 
 		WindowID transient_parent = INVALID_WINDOW_ID;
 		HashSet<WindowID> transient_children;
@@ -449,6 +450,7 @@ public:
 
 	virtual void window_set_title(const String &p_title, WindowID p_window = MAIN_WINDOW_ID) override;
 	virtual void window_set_mouse_passthrough(const Vector<Vector2> &p_region, WindowID p_window = MAIN_WINDOW_ID) override;
+	virtual void window_set_mouse_passthrough_rectangles(const TypedArray<Rect2i> &p_rectangles, WindowID p_window = MAIN_WINDOW_ID) override;
 
 	virtual void window_set_rect_changed_callback(const Callable &p_callable, WindowID p_window = MAIN_WINDOW_ID) override;
 	virtual void window_set_window_event_callback(const Callable &p_callable, WindowID p_window = MAIN_WINDOW_ID) override;
