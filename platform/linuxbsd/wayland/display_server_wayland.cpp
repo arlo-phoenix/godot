@@ -573,6 +573,22 @@ void DisplayServerWayland::window_set_mouse_passthrough(const Vector<Vector2> &p
 	DEBUG_LOG_WAYLAND(vformat("wayland stub window_set_mouse_passthrough region %s", p_region));
 }
 
+void DisplayServerWayland::window_set_mouse_passthrough_rectangles(const TypedArray<Rect2i> &p_rectangles, WindowID p_window) {
+	MutexLock mutex_lock(wayland_thread.mutex);
+
+	wl_surface *surface = wayland_thread.window_get_wl_surface(p_window);
+	WaylandThread::WindowState *window_state = wayland_thread.wl_surface_get_window_state(surface);
+	wl_region *region = wl_compositor_create_region(window_state->registry->wl_compositor);
+
+	for (int i = 0; i < p_rectangles.size(); i++) {
+		const Rect2i &rect = p_rectangles[i];
+		wl_region_add(region, rect.position.x, rect.position.y, rect.size.width, rect.size.height);
+	}
+	wl_surface_set_input_region(surface, region);
+	wl_region_destroy(region);
+	wl_surface_commit(surface);
+}
+
 void DisplayServerWayland::window_set_rect_changed_callback(const Callable &p_callable, DisplayServer::WindowID p_window_id) {
 	MutexLock mutex_lock(wayland_thread.mutex);
 

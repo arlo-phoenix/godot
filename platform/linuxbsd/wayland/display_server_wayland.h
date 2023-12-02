@@ -202,6 +202,7 @@ public:
 
 	virtual void window_set_title(const String &p_title, WindowID p_window_id = MAIN_WINDOW_ID) override;
 	virtual void window_set_mouse_passthrough(const Vector<Vector2> &p_region, WindowID p_window_id = MAIN_WINDOW_ID) override;
+	virtual void window_set_mouse_passthrough_rectangles(const TypedArray<Rect2i> &p_rectangles, WindowID p_window) override;
 
 	virtual void window_set_rect_changed_callback(const Callable &p_callable, WindowID p_window_id = MAIN_WINDOW_ID) override;
 	virtual void window_set_window_event_callback(const Callable &p_callable, WindowID p_window_id = MAIN_WINDOW_ID) override;
