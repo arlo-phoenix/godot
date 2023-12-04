@@ -43,6 +43,7 @@
 #else
 #include <wayland-client-core.h>
 #include <wayland-cursor.h>
+#include <xkbcommon/xkbcommon-compose.h>
 #include <xkbcommon/xkbcommon.h>
 #endif // SOWRAP_ENABLED
 
@@ -366,7 +367,9 @@ public:
 
 		struct xkb_context *xkb_context = nullptr;
 		struct xkb_keymap *xkb_keymap = nullptr;
+		struct xkb_compose_table *dead_tbl = nullptr;
 		struct xkb_state *xkb_state = nullptr;
+		struct xkb_compose_state *xkb_compose_state = nullptr;
 
 		const char *keymap_buffer = nullptr;
 		uint32_t keymap_buffer_size = 0;
@@ -807,7 +810,7 @@ private:
 	static Vector<uint8_t> _wp_primary_selection_offer_read(struct wl_display *wl_display, const char *p_mime, struct zwp_primary_selection_offer_v1 *wp_primary_selection_offer);
 
 	static void _seat_state_set_current(WaylandThread::SeatState &p_ss);
-	static bool _seat_state_configure_key_event(WaylandThread::SeatState &p_seat, Ref<InputEventKey> p_event, xkb_keycode_t p_keycode, bool p_pressed);
+	static TypedArray<InputEventKey> _seat_state_configure_key_event(WaylandThread::SeatState &p_seat, xkb_keycode_t p_keycode, bool p_pressed);
 
 	static void _wayland_state_update_cursor();
 

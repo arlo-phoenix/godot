@@ -187,13 +187,15 @@ Vector<uint8_t> WaylandThread::_wp_primary_selection_offer_read(struct wl_displa
 }
 
 // Sets up an `InputEventKey` and returns whether it has any meaningful value.
-bool WaylandThread::_seat_state_configure_key_event(SeatState &p_ss, Ref<InputEventKey> p_event, xkb_keycode_t p_keycode, bool p_pressed) {
-	// TODO: Handle keys that release multiple symbols?
-	Key keycode = KeyMappingXKB::get_keycode(xkb_state_key_get_one_sym(p_ss.xkb_state, p_keycode));
+TypedArray<InputEventKey> WaylandThread::_seat_state_configure_key_event(SeatState &p_ss, xkb_keycode_t p_keycode, bool p_pressed) {
+	TypedArray<InputEventKey> key_events;
+
+	xkb_keysym_t keysim = xkb_state_key_get_one_sym(p_ss.xkb_state, p_keycode);
+	Key keycode = KeyMappingXKB::get_keycode(keysim);
 	Key physical_keycode = KeyMappingXKB::get_scancode(p_keycode);
 
 	if (physical_keycode == Key::NONE) {
-		return false;
+		return key_events;
 	}
 
 	if (keycode == Key::NONE) {
@@ -204,39 +206,99 @@ bool WaylandThread::_seat_state_configure_key_event(SeatState &p_ss, Ref<InputEv
 		keycode -= 'a' - 'A';
 	}
 
-	p_event->set_window_id(DisplayServer::MAIN_WINDOW_ID);
-
-	// Set all pressed modifiers.
-	p_event->set_shift_pressed(p_ss.shift_pressed);
-	p_event->set_ctrl_pressed(p_ss.ctrl_pressed);
-	p_event->set_alt_pressed(p_ss.alt_pressed);
-	p_event->set_meta_pressed(p_ss.meta_pressed);
-
-	p_event->set_pressed(p_pressed);
-	p_event->set_keycode(keycode);
-	p_event->set_physical_keycode(physical_keycode);
-
 	uint32_t unicode = xkb_state_key_get_utf32(p_ss.xkb_state, p_keycode);
 
-	if (unicode != 0) {
-		p_event->set_key_label(fix_key_label(unicode, keycode));
-	} else {
-		p_event->set_key_label(keycode);
-	}
-
+	// only add to compose state machine if pressed
+	xkb_compose_feed_result res = XKB_COMPOSE_FEED_IGNORED;
 	if (p_pressed) {
-		p_event->set_unicode(fix_unicode(unicode));
+		res = xkb_compose_state_feed(p_ss.xkb_compose_state, keysim);
+	}
+	if (res == XKB_COMPOSE_FEED_ACCEPTED && xkb_compose_state_get_status(p_ss.xkb_compose_state) == XKB_COMPOSE_COMPOSED) {
+		char str_xkb[256] = {};
+		int str_xkb_size = xkb_compose_state_get_utf8(p_ss.xkb_compose_state, str_xkb, 255);
+
+		String tmp;
+		tmp.parse_utf8(str_xkb, str_xkb_size);
+		for (int i = 0; i < tmp.length(); i++) {
+			Ref<InputEventKey> k;
+			k.instantiate();
+			if (physical_keycode == Key::NONE && keycode == Key::NONE && tmp[i] == 0) {
+				continue;
+			}
+
+			if (keycode == Key::NONE) {
+				keycode = (Key)physical_keycode;
+			}
+
+			k->set_keycode(keycode);
+			k->set_physical_keycode(physical_keycode);
+			if (tmp[i] != 0) {
+				k->set_key_label(fix_key_label(unicode, keycode));
+			} else {
+				k->set_key_label(keycode);
+			}
+			if (p_pressed) {
+				k->set_unicode(fix_unicode(tmp[i]));
+			}
+
+			k->set_echo(false);
+			k->set_window_id(DisplayServer::MAIN_WINDOW_ID);
+
+			// Set all pressed modifiers.
+			k->set_shift_pressed(p_ss.shift_pressed);
+			k->set_ctrl_pressed(p_ss.ctrl_pressed);
+			k->set_alt_pressed(p_ss.alt_pressed);
+			k->set_meta_pressed(p_ss.meta_pressed);
+
+			k->set_pressed(p_pressed);
+
+			if (k->get_keycode() == Key::BACKTAB) {
+				//make it consistent across platforms.
+				k->set_keycode(Key::TAB);
+				k->set_physical_keycode(Key::TAB);
+				k->set_shift_pressed(true);
+			}
+
+			key_events.push_back(k);
+		}
 	}
 
-	// Taken from DisplayServerX11.
-	if (p_event->get_keycode() == Key::BACKTAB) {
-		// Make it consistent across platforms.
-		p_event->set_keycode(Key::TAB);
-		p_event->set_physical_keycode(Key::TAB);
-		p_event->set_shift_pressed(true);
-	}
+	else {
+		Ref<InputEventKey> single_key_event;
+		single_key_event.instantiate();
+		single_key_event->set_window_id(DisplayServer::MAIN_WINDOW_ID);
 
-	return true;
+		// Set all pressed modifiers.
+		single_key_event->set_shift_pressed(p_ss.shift_pressed);
+		single_key_event->set_ctrl_pressed(p_ss.ctrl_pressed);
+		single_key_event->set_alt_pressed(p_ss.alt_pressed);
+		single_key_event->set_meta_pressed(p_ss.meta_pressed);
+
+		single_key_event->set_pressed(p_pressed);
+		single_key_event->set_keycode(keycode);
+		single_key_event->set_physical_keycode(physical_keycode);
+
+		if (unicode != 0) {
+			single_key_event->set_key_label(fix_key_label(unicode, keycode));
+		} else {
+			single_key_event->set_key_label(keycode);
+		}
+
+		if (p_pressed) {
+			single_key_event->set_unicode(fix_unicode(unicode));
+		}
+
+		// Taken from DisplayServerX11.
+		if (single_key_event->get_keycode() == Key::BACKTAB) {
+			// Make it consistent across platforms.
+			single_key_event->set_keycode(Key::TAB);
+			single_key_event->set_physical_keycode(Key::TAB);
+			single_key_event->set_shift_pressed(true);
+		}
+
+		key_events.push_back(single_key_event);
+	}
+	return key_events;
 }
 
 void WaylandThread::_set_current_seat(struct wl_seat *p_seat) {
@@ -1221,10 +1283,27 @@ void WaylandThread::_wl_seat_on_capabilities(void *data, struct wl_seat *wl_seat
 
 		ss->wl_keyboard = wl_seat_get_keyboard(wl_seat);
 		wl_keyboard_add_listener(ss->wl_keyboard, &wl_keyboard_listener, ss);
+
+		const char *locale = getenv("LC_ALL");
+		if (!locale || !*locale) {
+			locale = getenv("LC_CTYPE");
+		}
+		if (!locale || !*locale) {
+			locale = getenv("LANG");
+		}
+		if (!locale || !*locale) {
+			locale = "C";
+		}
+		ss->dead_tbl = xkb_compose_table_new_from_locale(ss->xkb_context, locale, XKB_COMPOSE_COMPILE_NO_FLAGS);
+
 	} else {
 		if (ss->xkb_context) {
 			xkb_context_unref(ss->xkb_context);
 			ss->xkb_context = nullptr;
+		}
+		if (ss->dead_tbl) {
+			xkb_compose_table_unref(ss->dead_tbl);
+			ss->dead_tbl = nullptr;
 		}
 
 		if (ss->wl_keyboard) {
@@ -1661,6 +1740,7 @@ void WaylandThread::_wl_keyboard_on_keymap(void *data, struct wl_keyboard *wl_ke
 
 	xkb_state_unref(ss->xkb_state);
 	ss->xkb_state = xkb_state_new(ss->xkb_keymap);
+	ss->xkb_compose_state = xkb_compose_state_new(ss->dead_tbl, XKB_COMPOSE_STATE_NO_FLAGS);
 }
 
 void WaylandThread::_wl_keyboard_on_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, struct wl_surface *surface, struct wl_array *keys) {
@@ -1716,17 +1796,13 @@ void WaylandThread::_wl_keyboard_on_key(void *data, struct wl_keyboard *wl_keybo
 		ss->repeating_keycode = XKB_KEYCODE_INVALID;
 	}
 
-	Ref<InputEventKey> k;
-	k.instantiate();
-
-	if (!_seat_state_configure_key_event(*ss, k, xkb_keycode, pressed)) {
-		return;
+	TypedArray<InputEventKey> key_events = _seat_state_configure_key_event(*ss, xkb_keycode, pressed);
+	for (int i = 0; i < key_events.size(); i++) {
+		Ref<InputEventMessage> msg;
+		msg.instantiate();
+		msg->event = key_events[i];
+		wayland_thread->push_message(msg);
 	}
-
-	Ref<InputEventMessage> msg;
-	msg.instantiate();
-	msg->event = k;
-	wayland_thread->push_message(msg);
 }
 
 void WaylandThread::_wl_keyboard_on_modifiers(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, uint32_t mods_depressed, uint32_t mods_latched, uint32_t mods_locked, uint32_t group) {
@@ -2830,16 +2906,13 @@ void WaylandThread::seat_state_echo_keys(SeatState *p_ss) {
 			int keys_amount = (ticks_delta / p_ss->repeat_key_delay_msec);
 
 			for (int i = 0; i < keys_amount; i++) {
-				Ref<InputEventKey> k;
-				k.instantiate();
-
-				if (!_seat_state_configure_key_event(*p_ss, k, p_ss->repeating_keycode, true)) {
-					continue;
+				TypedArray<InputEventKey> key_events;
+				key_events = _seat_state_configure_key_event(*p_ss, p_ss->repeating_keycode, true);
+				for (int key_event_idx = 0; key_event_idx < key_events.size(); key_event_idx++) {
+					Ref<InputEventKey> k = key_events[key_event_idx];
+					k->set_echo(true);
+					Input::get_singleton()->parse_input_event(k);
 				}
-
-				k->set_echo(true);
-
-				Input::get_singleton()->parse_input_event(k);
 			}
 
 			p_ss->last_repeat_msec += ticks_delta - (ticks_delta % p_ss->repeat_key_delay_msec);
@@ -3831,6 +3904,7 @@ void WaylandThread::destroy() {
 		xkb_context_unref(ss->xkb_context);
 		xkb_state_unref(ss->xkb_state);
 		xkb_keymap_unref(ss->xkb_keymap);
+		xkb_compose_table_unref(ss->dead_tbl);
 
 		if (ss->wl_keyboard) {
 			wl_keyboard_destroy(ss->wl_keyboard);
