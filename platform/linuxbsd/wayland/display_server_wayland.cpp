@@ -575,15 +575,26 @@ void DisplayServerWayland::window_set_mouse_passthrough(const Vector<Vector2> &p
 
 void DisplayServerWayland::window_set_mouse_passthrough_rectangles(const TypedArray<Rect2i> &p_rectangles, WindowID p_window) {
 	MutexLock mutex_lock(wayland_thread.mutex);
+	main_window.passthrough_rectangles = p_rectangles;
+	_update_window_mouse_passthrough(p_window);
+}
+
+void DisplayServerWayland::_update_window_mouse_passthrough(WindowID p_window) {
+	//ERR_FAIL_COND(!windows.has(p_window));
 
 	wl_surface *surface = wayland_thread.window_get_wl_surface(p_window);
 	WaylandThread::WindowState *window_state = wayland_thread.wl_surface_get_window_state(surface);
 	wl_region *region = wl_compositor_create_region(window_state->registry->wl_compositor);
 
-	for (int i = 0; i < p_rectangles.size(); i++) {
-		const Rect2i &rect = p_rectangles[i];
-		wl_region_add(region, rect.position.x, rect.position.y, rect.size.width, rect.size.height);
+	if (main_window.flags & (1 << WINDOW_FLAG_MOUSE_PASSTHROUGH)) {
+	} else {
+		double scale_factor = 1.0 / wayland_thread.window_state_get_scale_factor(window_state);
+		for (int i = 0; i < main_window.passthrough_rectangles.size(); i++) {
+			const Rect2i &rect = main_window.passthrough_rectangles[i];
+			wl_region_add(region, scale_factor * rect.position.x, scale_factor * rect.position.y, scale_factor * rect.size.width, scale_factor * rect.size.height);
+		}
 	}
+
 	wl_surface_set_input_region(surface, region);
 	wl_region_destroy(region);
 	wl_surface_commit(surface);
@@ -771,19 +782,22 @@ void DisplayServerWayland::window_set_flag(WindowFlags p_flag, bool p_enabled, D
 
 	DEBUG_LOG_WAYLAND(vformat("Window set flag %d", p_flag));
 
-	switch (p_flag) {
-		case WINDOW_FLAG_BORDERLESS: {
-			wayland_thread.window_set_borderless(MAIN_WINDOW_ID, p_enabled);
-		} break;
-
-		default: {
-		}
-	}
-
 	if (p_enabled) {
 		wd.flags |= 1 << p_flag;
 	} else {
 		wd.flags &= ~(1 << p_flag);
+	}
+
+	switch (p_flag) {
+		case WINDOW_FLAG_BORDERLESS: {
+			wayland_thread.window_set_borderless(MAIN_WINDOW_ID, p_enabled);
+		} break;
+		case WINDOW_FLAG_MOUSE_PASSTHROUGH: {
+			_update_window_mouse_passthrough(p_window_id);
+		} break;
+
+		default: {
+		}
 	}
 }
 
