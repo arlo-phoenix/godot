@@ -683,7 +683,7 @@ void DisplayServerWayland::_update_window_mouse_passthrough(WindowID p_window) {
 	wl_surface *surface = wayland_thread.window_get_wl_surface(p_window);
 	WaylandThread::WindowState *window_state = wayland_thread.wl_surface_get_window_state(surface);
 
-	if (main_window.flags & (1 << WINDOW_FLAG_MOUSE_PASSTHROUGH)) {
+	if (main_window.flags & WINDOW_FLAG_MOUSE_PASSTHROUGH_BIT) {
 		wl_region *region = wl_compositor_create_region(window_state->registry->wl_compositor);
 		wl_surface_set_input_region(surface, region);
 		wl_region_destroy(region);
@@ -700,8 +700,6 @@ void DisplayServerWayland::_update_window_mouse_passthrough(WindowID p_window) {
 		wl_surface_set_input_region(surface, region);
 		wl_region_destroy(region);
 	}
-
-	wl_surface_commit(surface);
 }
 
 void DisplayServerWayland::window_set_rect_changed_callback(const Callable &p_callable, DisplayServer::WindowID p_window_id) {
