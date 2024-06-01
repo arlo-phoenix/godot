@@ -86,7 +86,7 @@ public:
 		id window_view;
 		id window_button_view;
 
-		Vector<Vector2> mpath;
+		TypedArray<Vector<Vector2>> mregions;
 		TypedArray<Rect2i> mrects;
 
 		Point2i mouse_pos;
@@ -346,7 +346,7 @@ public:
 
 	virtual void window_set_title(const String &p_title, WindowID p_window = MAIN_WINDOW_ID) override;
 	virtual Size2i window_get_title_size(const String &p_title, WindowID p_window) const override;
-	virtual void window_set_mouse_passthrough(const Vector<Vector2> &p_region, WindowID p_window = MAIN_WINDOW_ID) override;
+	virtual void window_set_mouse_passthrough_polygons(const TypedArray<Vector<Vector2>> &p_regions, WindowID p_window = MAIN_WINDOW_ID) override;
 	virtual void window_set_mouse_passthrough_rects(const TypedArray<Rect2i> &p_rects, WindowID p_window = MAIN_WINDOW_ID) override;
 
 	virtual int window_get_current_screen(WindowID p_window = MAIN_WINDOW_ID) const override;

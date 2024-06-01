@@ -1657,9 +1657,9 @@
 				[b]Note:[/b] Setting the window to full screen forcibly sets the borderless flag to [code]true[/code], so make sure to set it back to [code]false[/code] when not wanted.
 			</description>
 		</method>
-		<method name="window_set_mouse_passthrough">
+		<method name="window_set_mouse_passthrough_polygons">
 			<return type="void" />
-			<param index="0" name="region" type="PackedVector2Array" />
+			<param index="0" name="regions" type="PackedVector2Array[]" />
 			<param index="1" name="window_id" type="int" default="0" />
 			<description>
 				Sets a polygonal region of the window which accepts mouse events. Mouse events outside the region will be passed through.

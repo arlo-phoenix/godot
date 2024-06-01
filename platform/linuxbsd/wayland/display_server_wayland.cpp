@@ -669,7 +669,7 @@ void DisplayServerWayland::window_set_title(const String &p_title, DisplayServer
 	wayland_thread.window_set_title(MAIN_WINDOW_ID, wd.title);
 }
 
-void DisplayServerWayland::window_set_mouse_passthrough(const Vector<Vector2> &p_region, DisplayServer::WindowID p_window_id) {
+void DisplayServerWayland::window_set_mouse_passthrough_polygons(const TypedArray<Vector<Vector2>> &p_regions, DisplayServer::WindowID p_window_id) {
 	ERR_FAIL_MSG("Mouse polygon passthrough not supported by wayland.");
 }
 

@@ -1868,11 +1868,11 @@ void DisplayServerX11::window_set_title(const String &p_title, WindowID p_window
 	}
 }
 
-void DisplayServerX11::window_set_mouse_passthrough(const Vector<Vector2> &p_region, WindowID p_window) {
+void DisplayServerX11::window_set_mouse_passthrough_polygons(const TypedArray<Vector<Vector2>> &p_regions, WindowID p_window) {
 	_THREAD_SAFE_METHOD_
 
 	ERR_FAIL_COND(!windows.has(p_window));
-	windows[p_window].mpath = p_region;
+	windows[p_window].mregions = p_regions;
 	_update_window_mouse_passthrough(p_window);
 }
 
@@ -1902,25 +1902,25 @@ void DisplayServerX11::_update_window_mouse_passthrough(WindowID p_window) {
 }
 
 void DisplayServerX11::_update_window_input_region(WindowID p_window) {
-	const Vector<Vector2> &region_path = windows[p_window].mpath;
+	const TypedArray<Vector<Vector2>> &region_paths = windows[p_window].mregions;
 	const TypedArray<Rect2i> &region_rectangles = windows[p_window].mrects;
 
-	if (region_path.is_empty() && region_rectangles.is_empty()) {
+	if (region_paths.is_empty() && region_rectangles.is_empty()) {
 		XShapeCombineMask(x11_display, windows[p_window].x11_window, ShapeInput, 0, 0, None, ShapeSet);
 	} else {
-		Region input_region;
+		Region input_region = XCreateRegion();
 
-		// apply polygon to input region
-		if (region_path.size()) {
+		// apply polygons to input region
+		for (int region_idx = 0; region_idx < region_paths.size(); region_idx++) {
+			const Vector<Vector2> &region_path = region_paths[region_idx];
 			XPoint *points = (XPoint *)memalloc(sizeof(XPoint) * region_path.size());
 			for (int i = 0; i < region_path.size(); i++) {
 				points[i].x = region_path[i].x;
 				points[i].y = region_path[i].y;
 			}
-			input_region = XPolygonRegion(points, region_path.size(), EvenOddRule);
+			Region path_input_region = XPolygonRegion(points, region_path.size(), EvenOddRule);
+			XUnionRegion(input_region, path_input_region, input_region);
 			memfree(points);
-		} else {
-			input_region = XCreateRegion();
 		}
 
 		// add rectangles to input region
